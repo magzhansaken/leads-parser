@@ -1,0 +1,81 @@
+name: ПОЛНЫЙ СБОР (24 задачи)
+
+# Запуск вручную кнопкой
+on:
+  workflow_dispatch:
+
+# защита: не запускать второй полный сбор поверх работающего
+concurrency:
+  group: full-collect
+  cancel-in-progress: false
+
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350        # 5ч50м — страховка от зависания (лимит GitHub 6ч)
+
+    strategy:
+      fail-fast: false          # ВАЖНО: одна упала — остальные 23 работают
+      max-parallel: 6           # безопасно: по 6 одновременно (не грузим goszakup)
+      matrix:
+        include:
+          # ── 2026: январь–июнь ──
+          - { year: 2026, month: 1,  grp: "150-500т", af: 150000, at: "500000" }
+          - { year: 2026, month: 1,  grp: "от500т",   af: 500001, at: "none" }
+          - { year: 2026, month: 2,  grp: "150-500т", af: 150000, at: "500000" }
+          - { year: 2026, month: 2,  grp: "от500т",   af: 500001, at: "none" }
+          - { year: 2026, month: 3,  grp: "150-500т", af: 150000, at: "500000" }
+          - { year: 2026, month: 3,  grp: "от500т",   af: 500001, at: "none" }
+          - { year: 2026, month: 4,  grp: "150-500т", af: 150000, at: "500000" }
+          - { year: 2026, month: 4,  grp: "от500т",   af: 500001, at: "none" }
+          - { year: 2026, month: 5,  grp: "150-500т", af: 150000, at: "500000" }
+          - { year: 2026, month: 5,  grp: "от500т",   af: 500001, at: "none" }
+          - { year: 2026, month: 6,  grp: "150-500т", af: 150000, at: "500000" }
+          - { year: 2026, month: 6,  grp: "от500т",   af: 500001, at: "none" }
+          # ── 2025: июль–декабрь ──
+          - { year: 2025, month: 7,  grp: "150-500т", af: 150000, at: "500000" }
+          - { year: 2025, month: 7,  grp: "от500т",   af: 500001, at: "none" }
+          - { year: 2025, month: 8,  grp: "150-500т", af: 150000, at: "500000" }
+          - { year: 2025, month: 8,  grp: "от500т",   af: 500001, at: "none" }
+          - { year: 2025, month: 9,  grp: "150-500т", af: 150000, at: "500000" }
+          - { year: 2025, month: 9,  grp: "от500т",   af: 500001, at: "none" }
+          - { year: 2025, month: 10, grp: "150-500т", af: 150000, at: "500000" }
+          - { year: 2025, month: 10, grp: "от500т",   af: 500001, at: "none" }
+          - { year: 2025, month: 11, grp: "150-500т", af: 150000, at: "500000" }
+          - { year: 2025, month: 11, grp: "от500т",   af: 500001, at: "none" }
+          - { year: 2025, month: 12, grp: "150-500т", af: 150000, at: "500000" }
+          - { year: 2025, month: 12, grp: "от500т",   af: 500001, at: "none" }
+
+    name: "${{ matrix.year }}-${{ matrix.month }} ${{ matrix.grp }}"
+
+    steps:
+      - name: Скачать код
+        uses: actions/checkout@v4
+
+      - name: Установить Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Установить библиотеки
+        run: pip install requests pypdf
+
+      - name: Полный сбор (до 5ч40м) с диагностикой
+        env:
+          P_YEAR: ${{ matrix.year }}
+          P_MONTH: ${{ matrix.month }}
+          P_AMOUNT_FROM: ${{ matrix.af }}
+          P_AMOUNT_TO: ${{ matrix.at }}
+          P_GRP: ${{ matrix.grp }}
+          P_OUT: "leads_${{ matrix.year }}_${{ matrix.month }}_${{ matrix.af }}.csv"
+          P_TIME_BUDGET: "20400"    # 5ч40м (сам сохранит до таймаута 5ч50м)
+          P_PAUSE: "1.5"
+        run: python parse.py
+
+      - name: Сохранить результат (CSV)
+        uses: actions/upload-artifact@v4
+        with:
+          name: "leads-${{ matrix.year }}-${{ matrix.month }}-${{ matrix.af }}"
+          path: "leads_*.csv"
+          if-no-files-found: warn
+          retention-days: 90
