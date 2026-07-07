@@ -1,0 +1,41 @@
+name: ФАЗА 1 - Разведка (1 задача)
+
+# Запуск вручную кнопкой
+on:
+  workflow_dispatch:
+
+jobs:
+  test-one:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90        # тест: максимум 1.5 часа (не ждём 6ч)
+
+    steps:
+      - name: Скачать код
+        uses: actions/checkout@v4
+
+      - name: Установить Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Установить библиотеки
+        run: pip install requests pypdf
+
+      - name: РАЗВЕДКА - парсим июнь 2026, группа 150-500т (лимит 60 мин)
+        env:
+          P_YEAR: "2026"
+          P_MONTH: "6"
+          P_AMOUNT_FROM: "150000"
+          P_AMOUNT_TO: "500000"
+          P_GRP: "150-500т"
+          P_OUT: "leads_TEST_2026_06.csv"
+          P_TIME_BUDGET: "3300"     # 55 минут (за 5 мин до таймаута сам сохранит)
+        run: python parse.py
+
+      - name: Сохранить результат (CSV)
+        uses: actions/upload-artifact@v4
+        with:
+          name: leads-TEST-2026-06
+          path: "leads_*.csv"
+          if-no-files-found: warn
+          retention-days: 30
