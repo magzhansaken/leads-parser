@@ -1,0 +1,60 @@
+name: ФАЗА 2 - Партия (4 задачи, 10 мин)
+
+# Запуск вручную кнопкой
+on:
+  workflow_dispatch:
+
+# не запускать дубль поверх работающего
+concurrency:
+  group: faza2
+  cancel-in-progress: false
+
+jobs:
+  test-batch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15         # тест: максимум 15 мин на задачу
+
+    strategy:
+      fail-fast: false          # одна упала — остальные работают
+      max-parallel: 2           # мягко: по 2 одновременно (проверяем параллельность)
+      matrix:
+        include:
+          # 4 задачи: 2 месяца × 2 группы
+          - { year: 2026, month: 6, grp: "150-500т", af: 150000, at: "500000" }
+          - { year: 2026, month: 6, grp: "от500т",   af: 500001, at: "none" }
+          - { year: 2026, month: 5, grp: "150-500т", af: 150000, at: "500000" }
+          - { year: 2026, month: 5, grp: "от500т",   af: 500001, at: "none" }
+
+    name: "${{ matrix.year }}-${{ matrix.month }} ${{ matrix.grp }}"
+
+    steps:
+      - name: Скачать код
+        uses: actions/checkout@v4
+
+      - name: Установить Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Установить библиотеки
+        run: pip install requests pypdf
+
+      - name: Парсинг (10 мин) с диагностикой пропусков
+        env:
+          P_YEAR: ${{ matrix.year }}
+          P_MONTH: ${{ matrix.month }}
+          P_AMOUNT_FROM: ${{ matrix.af }}
+          P_AMOUNT_TO: ${{ matrix.at }}
+          P_GRP: ${{ matrix.grp }}
+          P_OUT: "leads_${{ matrix.year }}_${{ matrix.month }}_${{ matrix.af }}.csv"
+          P_TIME_BUDGET: "600"      # 10 минут
+          P_PAUSE: "1.5"
+        run: python parse.py
+
+      - name: Сохранить результат (CSV)
+        uses: actions/upload-artifact@v4
+        with:
+          name: "faza2-${{ matrix.year }}-${{ matrix.month }}-${{ matrix.af }}"
+          path: "leads_*.csv"
+          if-no-files-found: warn
+          retention-days: 30
